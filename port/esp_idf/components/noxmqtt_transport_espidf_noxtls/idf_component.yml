@@ -1,0 +1,5 @@
+description: NoxTLS-backed transport component for NoxMQTT on ESP-IDF
+license: GPL-2.0-only OR LicenseRef-Argenox-Commercial
+dependencies:
+  idf:
+    version: ">=5.0"

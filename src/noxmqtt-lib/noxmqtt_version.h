@@ -1,7 +1,7 @@
 /*****************************************************************************
 * Copyright (c) [2024] - [2026], Argenox Technologies LLC
 * All rights reserved.
-* SPDX-License-Identifier: GPL-2.0-or-later OR NoxTLS-Commercial
+* SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-Argenox-Commercial
 *
 *
 * This file is part of the NoxMQTT Library.
@@ -14,18 +14,14 @@
 * CONTACT: info@argenox.com
 *
 *
-* File:    commandline.c
-* Summary: Command Line Parser
+* File:    noxmqtt_version.h
+* Summary: NoxMQTT Version
 *
 *****************************************************************************/
 
+#ifndef _NOXMQTT_VERSION_H_
+#define _NOXMQTT_VERSION_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define NOXMQTT_VERSION "0.2.10"
 
-/* System Includes */
-#include <stdint.h>
-#include <string.h>
-#include <stdio.h>
-
+#endif /* _NOXMQTT_VERSION_H_ */

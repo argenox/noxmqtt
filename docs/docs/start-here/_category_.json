@@ -1,0 +1,10 @@
+{
+  "label": "Start Here",
+  "position": 1,
+  "collapsed": false,
+  "link": {
+    "type": "generated-index",
+    "title": "Start Here",
+    "description": "Build NoxMQTT, connect to a broker, configure secure transport, and port the client to your platform."
+  }
+}

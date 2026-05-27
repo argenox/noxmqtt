@@ -1,0 +1,5 @@
+description: NoxMQTT plain TCP transport component for ESP-IDF
+license: GPL-2.0-only OR LicenseRef-Argenox-Commercial
+dependencies:
+  idf:
+    version: ">=5.0"

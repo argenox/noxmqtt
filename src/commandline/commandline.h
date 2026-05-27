@@ -41,7 +41,7 @@
 extern "C" {
 #endif
 
-#include "mqttnox_err.h"
+#include "noxmqtt_err.h"
 
 #define DESC_MAX_NAME_LEN 64
 

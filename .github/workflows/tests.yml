@@ -1,0 +1,74 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: Unit Tests (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Configure unit tests
+        run: cmake -S tests -B tests/build -A x64
+
+      - name: Build unit tests
+        run: cmake --build tests/build --config Debug
+
+      - name: Run unit tests
+        run: ctest --test-dir tests/build -C Debug --output-on-failure -L unit
+
+  integration-tests:
+    name: Integration Tests (Ubuntu + Mosquitto)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build mosquitto mosquitto-clients
+
+      - name: Start Mosquitto
+        run: |
+          nohup mosquitto -c tests/mosquitto.conf -v > tests/mosquitto.log 2>&1 &
+          echo $! > tests/mosquitto.pid
+
+          for attempt in 1 2 3 4 5; do
+            if mosquitto_pub -h 127.0.0.1 -p 1883 -t noxmqtt/ci/health -m ready; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "Mosquitto did not start in time" >&2
+          exit 1
+
+      - name: Configure tests
+        run: cmake -S tests -B tests/build -G Ninja -DNOXMQTT_BUILD_INTEGRATION_TESTS=ON
+
+      - name: Build tests
+        run: cmake --build tests/build
+
+      - name: Run tests
+        env:
+          NOXMQTT_TEST_BROKER_HOST: 127.0.0.1
+          NOXMQTT_TEST_BROKER_PORT: 1883
+        run: ctest --test-dir tests/build --output-on-failure
+
+      - name: Upload Mosquitto log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosquitto-log
+          if-no-files-found: ignore
+          path: tests/mosquitto.log

@@ -1,0 +1,52 @@
+menu "NoxMQTT"
+
+config NOXMQTT_TX_BUF_SIZE
+    int "TX buffer size"
+    range 256 65535
+    default 1024
+    help
+        Size in bytes of the NoxMQTT transmit buffer.
+
+config NOXMQTT_RX_BUF_SIZE
+    int "RX buffer size"
+    range 512 65535
+    default 4096
+    help
+        Size in bytes of the NoxMQTT receive buffer.
+
+config NOXMQTT_MAX_SUBSCRIPTIONS
+    int "Maximum cached subscriptions"
+    range 1 256
+    default 16
+    help
+        Number of subscriptions NoxMQTT caches for reconnect resubscribe.
+
+config NOXMQTT_MAX_OUTBOX_MESSAGES
+    int "Maximum queued/in-flight QoS messages"
+    range 1 256
+    default 16
+    help
+        Number of QoS messages NoxMQTT retains for replay and ACK tracking.
+
+config NOXMQTT_MAX_TOPIC_ALIASES
+    int "Maximum topic aliases"
+    range 1 256
+    default 16
+    help
+        Maximum number of MQTT 5 topic aliases tracked per client.
+
+config NOXMQTT_MAX_USER_PROPERTIES
+    int "Maximum MQTT 5 user properties"
+    range 1 64
+    default 8
+    help
+        Maximum MQTT 5 user properties stored per parsed packet or queued message.
+
+config NOXMQTT_MAX_SUBSCRIPTION_IDENTIFIERS
+    int "Maximum MQTT 5 subscription identifiers"
+    range 1 64
+    default 8
+    help
+        Maximum number of MQTT 5 subscription identifiers retained from a parsed publish packet.
+
+endmenu

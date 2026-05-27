@@ -1,0 +1,6 @@
+src/commandline/commandline.c
+src/noxmqtt-lib/noxmqtt.c
+src/noxmqtt-lib/noxmqtt_mqtt5.c
+src/noxmqtt-lib/noxmqttlib.c
+src/noxmqtt-lib/noxmqtt_debug.c
+apps/noxmqtt/main.c

@@ -1,6 +1,18 @@
 # Prerequisites
 *.d
 
+# Local build directories
+/build/
+/build-*/
+/build_*/
+/build-cmake/
+/build-cmake-*/
+/verify-build/
+/verify-build-*/
+/verify-build-cli/
+/cmake-build-*/
+/dist/
+
 # Object files
 *.o
 *.ko
@@ -107,3 +119,12 @@ artifacts/
 *.pch
 *.pdb
 *.pgc
+tests/build/
+tests/build-*/
+tests/mosquitto.log
+tests/mosquitto.pid
+
+# Docusaurus / docs tooling
+docs/.docusaurus/
+docs/build/
+docs/node_modules/

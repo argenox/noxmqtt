@@ -1,0 +1,124 @@
+name: CLI Builds
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-cli:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64 TCP
+            os: windows-latest
+            artifact: noxmqtt-windows-x64-tcp
+            enable_noxtls: OFF
+          - name: Windows x64 NoxTLS
+            os: windows-latest
+            artifact: noxmqtt-windows-x64-noxtls
+            enable_noxtls: ON
+          - name: Linux x64 TCP
+            os: ubuntu-latest
+            artifact: noxmqtt-linux-x64-tcp
+            enable_noxtls: OFF
+          - name: Linux x64 NoxTLS
+            os: ubuntu-latest
+            artifact: noxmqtt-linux-x64-noxtls
+            enable_noxtls: ON
+          - name: macOS x64 TCP
+            os: macos-13
+            artifact: noxmqtt-macos-x64-tcp
+            enable_noxtls: OFF
+          - name: macOS x64 NoxTLS
+            os: macos-13
+            artifact: noxmqtt-macos-x64-noxtls
+            enable_noxtls: ON
+          - name: macOS arm64 TCP
+            os: macos-14
+            artifact: noxmqtt-macos-arm64-tcp
+            enable_noxtls: OFF
+          - name: macOS arm64 NoxTLS
+            os: macos-14
+            artifact: noxmqtt-macos-arm64-noxtls
+            enable_noxtls: ON
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Fetch NoxTLS
+        if: matrix.enable_noxtls == 'ON'
+        run: git clone --depth 1 https://github.com/argenox/noxtls.git external/noxtls
+
+      - name: Configure Windows build
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $args = @(
+            "-DNOXMQTT_BUILD_CLI_APP=ON",
+            "-DNOXMQTT_CLI_ENABLE_NOXTLS=${{ matrix.enable_noxtls }}"
+          )
+          if ("${{ matrix.enable_noxtls }}" -eq "ON") {
+            $args += "-DNOXMQTT_NOXTLS_ROOT=$pwd/external/noxtls"
+          }
+          cmake -S . -B build -A x64 @args
+
+      - name: Configure POSIX build
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          EXTRA_ARGS=(
+            -DNOXMQTT_BUILD_CLI_APP=ON
+            -DNOXMQTT_CLI_ENABLE_NOXTLS=${{ matrix.enable_noxtls }}
+            -DCMAKE_BUILD_TYPE=Release
+            -G Ninja
+          )
+          if [ "${{ matrix.enable_noxtls }}" = "ON" ]; then
+            EXTRA_ARGS+=("-DNOXMQTT_NOXTLS_ROOT=$PWD/external/noxtls")
+          fi
+          cmake -S . -B build "${EXTRA_ARGS[@]}"
+
+      - name: Build Windows CLI
+        if: runner.os == 'Windows'
+        run: cmake --build build --config Release --target noxmqtt_cli
+
+      - name: Build POSIX CLI
+        if: runner.os != 'Windows'
+        run: cmake --build build --target noxmqtt_cli
+
+      - name: Package artifact
+        shell: powershell
+        run: |
+          $dest = Join-Path $pwd "dist/${{ matrix.artifact }}"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          if ("${{ runner.os }}" -eq "Windows") {
+            Copy-Item "build/apps/noxmqtt/Release/noxmqtt.exe" $dest
+          } else {
+            Copy-Item "build/apps/noxmqtt/noxmqtt" $dest
+          }
+          Copy-Item "README.md" $dest
+          Copy-Item "LICENSE" $dest
+          Copy-Item "LICENSE-ARGENOX-COMMERCIAL.md" $dest
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}
