@@ -1,4 +1,4 @@
-name: CLI Builds
+name: CLI Builds v2
 
 on:
   pull_request:
@@ -147,18 +147,25 @@ jobs:
         if: runner.os != 'Windows'
         run: cmake --build build --target noxmqtt_cli
 
-      - name: Package artifact
+      - name: Package Windows artifact
+        if: runner.os == 'Windows'
         shell: powershell
         run: |
           $dest = Join-Path $pwd "dist/${{ matrix.artifact }}"
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          if ("${{ runner.os }}" -eq "Windows") {
-            Copy-Item "build/apps/noxmqtt/Release/noxmqtt.exe" $dest
-          } else {
-            Copy-Item "build/apps/noxmqtt/noxmqtt" $dest
-          }
+          Copy-Item "build/apps/noxmqtt/Release/noxmqtt.exe" $dest
           Copy-Item "README.md" $dest
           Copy-Item "LICENSE" $dest
+
+      - name: Package POSIX artifact
+        if: runner.os != 'Windows'
+        shell: /bin/bash --noprofile --norc -eo pipefail {0}
+        run: |
+          dest="dist/${{ matrix.artifact }}"
+          mkdir -p "$dest"
+          cp "build/apps/noxmqtt/noxmqtt" "$dest/"
+          cp "README.md" "$dest/"
+          cp "LICENSE" "$dest/"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
