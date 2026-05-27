@@ -6,7 +6,7 @@
  * This file is part of NoxMQTT.
  * You may use this file under GPL-2.0-only or under a commercial license
  * from Argenox Technologies LLC. See LICENSE and
- * LICENSE-ARGENOX-COMMERCIAL.md.
+ * LICENSE.
  *
  * File: test_noxmqtt_integration.c
  * Summary: Broker-backed NoxMQTT integration tests

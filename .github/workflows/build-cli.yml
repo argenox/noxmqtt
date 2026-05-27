@@ -11,41 +11,81 @@ permissions:
 jobs:
   build-cli:
     name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: Windows x64 TCP
-            os: windows-latest
+            runner: windows-latest
+            platform: windows
+            arch: x64
             artifact: noxmqtt-windows-x64-tcp
             enable_noxtls: OFF
           - name: Windows x64 NoxTLS
-            os: windows-latest
+            runner: windows-latest
+            platform: windows
+            arch: x64
             artifact: noxmqtt-windows-x64-noxtls
             enable_noxtls: ON
+          - name: Windows arm64 TCP
+            runner: windows-11-arm
+            platform: windows
+            arch: arm64
+            artifact: noxmqtt-windows-arm64-tcp
+            enable_noxtls: OFF
+          - name: Windows arm64 NoxTLS
+            runner: windows-11-arm
+            platform: windows
+            arch: arm64
+            artifact: noxmqtt-windows-arm64-noxtls
+            enable_noxtls: ON
           - name: Linux x64 TCP
-            os: ubuntu-latest
+            runner: ubuntu-latest
+            platform: linux
+            arch: x64
             artifact: noxmqtt-linux-x64-tcp
             enable_noxtls: OFF
           - name: Linux x64 NoxTLS
-            os: ubuntu-latest
+            runner: ubuntu-latest
+            platform: linux
+            arch: x64
             artifact: noxmqtt-linux-x64-noxtls
             enable_noxtls: ON
+          - name: Linux arm64 TCP
+            runner: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+            artifact: noxmqtt-linux-arm64-tcp
+            enable_noxtls: OFF
+          - name: Linux arm64 NoxTLS
+            runner: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+            artifact: noxmqtt-linux-arm64-noxtls
+            enable_noxtls: ON
           - name: macOS x64 TCP
-            os: macos-13
+            runner: macos-13
+            platform: macos
+            arch: x64
             artifact: noxmqtt-macos-x64-tcp
             enable_noxtls: OFF
           - name: macOS x64 NoxTLS
-            os: macos-13
+            runner: macos-13
+            platform: macos
+            arch: x64
             artifact: noxmqtt-macos-x64-noxtls
             enable_noxtls: ON
           - name: macOS arm64 TCP
-            os: macos-14
+            runner: macos-14
+            platform: macos
+            arch: arm64
             artifact: noxmqtt-macos-arm64-tcp
             enable_noxtls: OFF
           - name: macOS arm64 NoxTLS
-            os: macos-14
+            runner: macos-14
+            platform: macos
+            arch: arm64
             artifact: noxmqtt-macos-arm64-noxtls
             enable_noxtls: ON
 
@@ -71,6 +111,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: |
+          $cmakeArch = "x64"
+          if ("${{ matrix.arch }}" -eq "arm64") {
+            $cmakeArch = "ARM64"
+          }
           $args = @(
             "-DNOXMQTT_BUILD_CLI_APP=ON",
             "-DNOXMQTT_CLI_ENABLE_NOXTLS=${{ matrix.enable_noxtls }}"
@@ -78,7 +122,7 @@ jobs:
           if ("${{ matrix.enable_noxtls }}" -eq "ON") {
             $args += "-DNOXMQTT_NOXTLS_ROOT=$pwd/external/noxtls"
           }
-          cmake -S . -B build -A x64 @args
+          cmake -S . -B build -A $cmakeArch @args
 
       - name: Configure POSIX build
         if: runner.os != 'Windows'
@@ -115,7 +159,6 @@ jobs:
           }
           Copy-Item "README.md" $dest
           Copy-Item "LICENSE" $dest
-          Copy-Item "LICENSE-ARGENOX-COMMERCIAL.md" $dest
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

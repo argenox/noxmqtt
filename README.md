@@ -11,8 +11,7 @@ NoxMQTT is dual-licensed under:
 - `LicenseRef-Argenox-Commercial`
 
 You may use NoxMQTT under GPL v2.0 only, or under a separate commercial license from Argenox
-Technologies LLC. See [LICENSE](./LICENSE) and
-[LICENSE-ARGENOX-COMMERCIAL.md](./LICENSE-ARGENOX-COMMERCIAL.md).
+Technologies LLC. See [LICENSE](./LICENSE).
 
 ## Why another MQTT Client?
 

@@ -15,7 +15,6 @@ files:
     - "CMakeLists.txt"
     - "Kconfig"
     - "LICENSE"
-    - "LICENSE-ARGENOX-COMMERCIAL.md"
     - "README.md"
     - "idf_component.yml"
     - "src/noxmqtt-lib/*.c"
