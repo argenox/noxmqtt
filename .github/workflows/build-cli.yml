@@ -65,13 +65,13 @@ jobs:
             artifact: noxmqtt-linux-arm64-noxtls
             enable_noxtls: ON
           - name: macOS x64 TCP
-            runner: macos-13
+            runner: macos-15-intel
             platform: macos
             arch: x64
             artifact: noxmqtt-macos-x64-tcp
             enable_noxtls: OFF
           - name: macOS x64 NoxTLS
-            runner: macos-13
+            runner: macos-15-intel
             platform: macos
             arch: x64
             artifact: noxmqtt-macos-x64-noxtls
