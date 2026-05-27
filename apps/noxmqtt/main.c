@@ -1,7 +1,7 @@
 /*****************************************************************************
 * Copyright (c) [2024] - [2026], Argenox Technologies LLC
 * All rights reserved.
-* SPDX-License-Identifier: GPL-2.0-or-later OR NoxTLS-Commercial
+* SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-Argenox-Commercial
 *
 *
 * This file is part of the NoxMQTT Library.
@@ -41,6 +41,10 @@
 
 #include "noxmqtt.h"
 #include "noxmqtt_tal.h"
+
+#if defined(NOXMQTT_APP_HAS_NOXTLS) && (NOXMQTT_APP_HAS_NOXTLS != 0)
+#include "noxtls_version.h"
+#endif
 
 #define NOXMQTT_APP_HOST_LEN     256
 #define NOXMQTT_APP_TOPIC_LEN    256
@@ -120,6 +124,8 @@ static void noxmqtt_app_assign_mutable_string(char* storage, size_t storage_len,
 static void noxmqtt_app_assign_const_string(char* storage, size_t storage_len, const char** field, const char* value);
 static const char* noxmqtt_app_mode_name(noxmqtt_transport_mode_t mode);
 static const char* noxmqtt_app_protocol_name(noxmqtt_protocol_ver_t version);
+static const char* noxmqtt_app_noxtls_version(void);
+static void noxmqtt_app_print_versions(void);
 static void noxmqtt_app_request_stop(noxmqtt_app_t* app);
 static void noxmqtt_app_print_message(const received_evt_t* evt);
 
@@ -193,6 +199,8 @@ static void noxmqtt_app_signal_handler(int signum)
 static void noxmqtt_app_usage(void)
 {
     printf("noxmqtt - cross-platform MQTT client\n\n");
+    noxmqtt_app_print_versions();
+    printf("\n");
     printf("Usage:\n");
     printf("  noxmqtt pub [options] -t <topic> -m <message>\n");
     printf("  noxmqtt sub [options] -t <topic>\n");
@@ -219,6 +227,7 @@ static void noxmqtt_app_usage(void)
     printf("      --reconnect-ms <ms>          Reconnect delay\n");
     printf("      --timeout-ms <ms>            Network timeout\n");
     printf("      --interactive                Run interactive shell\n");
+    printf("      --version                    Show build versions\n");
     printf("      --help                       Show this help text\n\n");
     printf("TLS options:\n");
     printf("      --tls                        Use secure MQTTS transport\n");
@@ -232,6 +241,7 @@ static void noxmqtt_app_usage(void)
     printf("      --insecure                   Disable peer and hostname verification\n\n");
     printf("Interactive commands:\n");
     printf("  help\n");
+    printf("  version\n");
     printf("  show\n");
     printf("  set host|port|mode|proto|clientid|keepalive|clean|username|password\n");
     printf("  set reconnect_ms|timeout_ms|disable_auto_reconnect|verify_peer|verify_hostname\n");
@@ -481,6 +491,29 @@ static const char* noxmqtt_app_protocol_name(noxmqtt_protocol_ver_t version)
 }
 
 /**
+ * @brief Returns the NoxTLS version compiled into this CLI build.
+ *
+ * @return NoxTLS version string, or `"disabled"` when NoxTLS is not linked.
+ */
+static const char* noxmqtt_app_noxtls_version(void)
+{
+#if defined(NOXMQTT_APP_HAS_NOXTLS) && (NOXMQTT_APP_HAS_NOXTLS != 0)
+    return NOXTLS_VERSION_STRING;
+#else
+    return "disabled";
+#endif
+}
+
+/**
+ * @brief Prints the NoxMQTT and compiled NoxTLS versions.
+ */
+static void noxmqtt_app_print_versions(void)
+{
+    printf("NoxMQTT %s\n", NOXMQTT_VERSION);
+    printf("NoxTLS %s\n", noxmqtt_app_noxtls_version());
+}
+
+/**
  * @brief Prints the current application configuration.
  *
  * @param[in] app Application state object.
@@ -491,6 +524,8 @@ static void noxmqtt_app_print_show(const noxmqtt_app_t* app)
         return;
     }
 
+    printf("noxmqtt_version=%s\n", NOXMQTT_VERSION);
+    printf("noxtls_version=%s\n", noxmqtt_app_noxtls_version());
     printf("connected=%d\n", app->connected);
     printf("action=%d\n", (int)app->action);
     printf("host=%s\n", (app->conf.server.addr != NULL) ? app->conf.server.addr : "");
@@ -1039,6 +1074,10 @@ static int noxmqtt_app_parse_args(noxmqtt_app_t* app, int argc, char** argv)
             noxmqtt_app_usage();
             app->exit_code = 0;
             return 1;
+        } else if (strcmp(arg, "--version") == 0) {
+            noxmqtt_app_print_versions();
+            app->exit_code = 0;
+            return 1;
         } else if ((strcmp(arg, "-h") == 0) || (strcmp(arg, "--host") == 0)) {
             if (++i >= argc) {
                 return -1;
@@ -1233,6 +1272,11 @@ static int noxmqtt_app_process_line(noxmqtt_app_t* app, char* line)
         return 0;
     }
 
+    if (NOXMQTT_STRICMP(cmd, "version") == 0) {
+        noxmqtt_app_print_versions();
+        return 0;
+    }
+
     if (NOXMQTT_STRICMP(cmd, "show") == 0 || NOXMQTT_STRICMP(cmd, "status") == 0) {
         noxmqtt_app_print_show(app);
         return 0;
@@ -1335,6 +1379,7 @@ static int noxmqtt_app_run_interactive(noxmqtt_app_t* app)
     }
 
     printf("NoxMQTT interactive mode. Type 'help' for commands.\n");
+    noxmqtt_app_print_versions();
 
     while (app->running) {
         printf("> ");
