@@ -1425,7 +1425,6 @@ static noxmqtt_rc_t mqtt5_write_user_properties(uint8_t* buffer,
                                                 uint16_t count)
 {
     uint16_t i = 0;
-    noxmqtt_rc_t rc;
 
     if (count == 0U) {
         return NOXMQTT_SUCCESS;
@@ -1435,6 +1434,8 @@ static noxmqtt_rc_t mqtt5_write_user_properties(uint8_t* buffer,
     }
 
     for (i = 0; i < count; i++) {
+        noxmqtt_rc_t rc;
+
         buffer[(*offset)++] = MQTT5_PROPERTY_USER_PROPERTY;
         rc = mqtt5_write_u16(buffer, buffer_len, offset, props[i].name_len);
         if (rc != NOXMQTT_SUCCESS) {

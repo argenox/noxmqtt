@@ -94,7 +94,7 @@ static noxmqtt_rc_t noxmqtt_finalize_packet(noxmqtt_client_t* c,
                                             uint16_t body_len,
                                             uint8_t** out_start,
                                             uint16_t* out_len);
-static noxmqtt_rc_t noxmqtt_validate_client(noxmqtt_client_t* c);
+static noxmqtt_rc_t noxmqtt_validate_client(const noxmqtt_client_t* c);
 static uint8_t noxmqtt_validate_received_header_flags(const noxmqtt_hdr_t* hdr);
 static uint32_t noxmqtt_last_activity_ms(noxmqtt_client_t* c);
 static void noxmqtt_subscription_cache_clear(noxmqtt_client_t* c);
@@ -2210,7 +2210,6 @@ noxmqtt_rc_t noxmqtt_disconnect_ex(noxmqtt_client_t* c, const noxmqtt_mqtt5_disc
         if (c->last_conf.protocol_version == NOXMQTT_PROTOCOL_V5_0) {
             noxmqtt_hdr_t hdr;
             uint16_t offset = NOXMQTT_FIXED_HEADER_MAX_LEN;
-            uint16_t body_len;
             uint8_t* send_ptr = NULL;
             uint16_t send_len = 0;
             uint8_t props_buf[128];
@@ -2248,7 +2247,7 @@ noxmqtt_rc_t noxmqtt_disconnect_ex(noxmqtt_client_t* c, const noxmqtt_mqtt5_disc
                     return rc;
                 }
 
-                body_len = (uint16_t)(offset - NOXMQTT_FIXED_HEADER_MAX_LEN);
+                uint16_t body_len = (uint16_t)(offset - NOXMQTT_FIXED_HEADER_MAX_LEN);
                 rc = noxmqtt_finalize_packet(c, hdr, body_len, &send_ptr, &send_len);
                 if (rc != NOXMQTT_SUCCESS) {
                     return rc;
@@ -2665,7 +2664,7 @@ static noxmqtt_rc_t noxmqtt_finalize_packet(noxmqtt_client_t* c,
  *
  * @return NoxMQTT status code.
  */
-static noxmqtt_rc_t noxmqtt_validate_client(noxmqtt_client_t* c)
+static noxmqtt_rc_t noxmqtt_validate_client(const noxmqtt_client_t* c)
 {
     if (c == NULL) {
         return NOXMQTT_RC_ERROR_NULL;
