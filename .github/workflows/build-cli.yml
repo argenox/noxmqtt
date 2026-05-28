@@ -160,11 +160,10 @@ jobs:
       - name: Run Linux TCP CLI smoke test
         if: runner.os == 'Linux' && matrix.arch == 'x64' && matrix.enable_noxtls == 'OFF'
         shell: bash
-        env:
-          NOXMQTT_CI_LOG_DIR: ${{ github.workspace }}/tests/ci/logs
         run: |
-          mkdir -p "$NOXMQTT_CI_LOG_DIR"
-          nohup mosquitto -c tests/mosquitto.conf -v >"$NOXMQTT_CI_LOG_DIR/mosquitto-tcp.log" 2>&1 &
+          log_dir="tests/ci/logs"
+          mkdir -p "$log_dir"
+          nohup mosquitto -c tests/mosquitto.conf -v >"$log_dir/mosquitto-tcp.log" 2>&1 &
           broker_pid=$!
           cleanup() {
             kill "$broker_pid" >/dev/null 2>&1 || true
@@ -174,6 +173,11 @@ jobs:
 
           broker_ready=0
           for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if ! kill -0 "$broker_pid" >/dev/null 2>&1; then
+              echo "TCP Mosquitto broker exited early" >&2
+              cat "$log_dir/mosquitto-tcp.log" >&2 || true
+              exit 1
+            fi
             if mosquitto_pub -h 127.0.0.1 -p 1883 -t noxmqtt/ci/health -m ready; then
               broker_ready=1
               break
@@ -183,9 +187,11 @@ jobs:
 
           if [ "$broker_ready" -ne 1 ]; then
             echo "TCP Mosquitto broker did not become ready" >&2
+            cat "$log_dir/mosquitto-tcp.log" >&2 || true
             exit 1
           fi
 
+          export NOXMQTT_CI_LOG_DIR="$log_dir"
           ./tests/ci/run-noxmqtt-cli-smoke.sh tcp ./build/apps/noxmqtt/noxmqtt
 
       - name: Generate Linux TLS test certificates
@@ -196,11 +202,10 @@ jobs:
       - name: Run Linux MQTTS CLI smoke test
         if: runner.os == 'Linux' && matrix.arch == 'x64' && matrix.enable_noxtls == 'ON'
         shell: bash
-        env:
-          NOXMQTT_CI_LOG_DIR: ${{ github.workspace }}/tests/ci/logs
         run: |
-          mkdir -p "$NOXMQTT_CI_LOG_DIR"
-          nohup mosquitto -c tests/mosquitto-tls.conf -v >"$NOXMQTT_CI_LOG_DIR/mosquitto-tls.log" 2>&1 &
+          log_dir="tests/ci/logs"
+          mkdir -p "$log_dir"
+          nohup mosquitto -c tests/mosquitto-tls.conf -v >"$log_dir/mosquitto-tls.log" 2>&1 &
           broker_pid=$!
           cleanup() {
             kill "$broker_pid" >/dev/null 2>&1 || true
@@ -210,7 +215,12 @@ jobs:
 
           broker_ready=0
           for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            if mosquitto_pub -h localhost -p 8883 --cafile tests/tls/ca.crt -t noxmqtt/ci/health -m ready; then
+            if ! kill -0 "$broker_pid" >/dev/null 2>&1; then
+              echo "TLS Mosquitto broker exited early" >&2
+              cat "$log_dir/mosquitto-tls.log" >&2 || true
+              exit 1
+            fi
+            if mosquitto_pub -h 127.0.0.1 -p 8883 --cafile tests/tls/ca.crt -t noxmqtt/ci/health -m ready; then
               broker_ready=1
               break
             fi
@@ -219,19 +229,20 @@ jobs:
 
           if [ "$broker_ready" -ne 1 ]; then
             echo "TLS Mosquitto broker did not become ready" >&2
+            cat "$log_dir/mosquitto-tls.log" >&2 || true
             exit 1
           fi
 
+          export NOXMQTT_CI_LOG_DIR="$log_dir"
           ./tests/ci/run-noxmqtt-cli-smoke.sh tls ./build/apps/noxmqtt/noxmqtt
 
       - name: Run Linux mutual-TLS CLI smoke test
         if: runner.os == 'Linux' && matrix.arch == 'x64' && matrix.enable_noxtls == 'ON'
         shell: bash
-        env:
-          NOXMQTT_CI_LOG_DIR: ${{ github.workspace }}/tests/ci/logs
         run: |
-          mkdir -p "$NOXMQTT_CI_LOG_DIR"
-          nohup mosquitto -c tests/mosquitto-mtls.conf -v >"$NOXMQTT_CI_LOG_DIR/mosquitto-mtls.log" 2>&1 &
+          log_dir="tests/ci/logs"
+          mkdir -p "$log_dir"
+          nohup mosquitto -c tests/mosquitto-mtls.conf -v >"$log_dir/mosquitto-mtls.log" 2>&1 &
           broker_pid=$!
           cleanup() {
             kill "$broker_pid" >/dev/null 2>&1 || true
@@ -241,7 +252,12 @@ jobs:
 
           broker_ready=0
           for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            if mosquitto_pub -h localhost -p 8884 --cafile tests/tls/ca.crt --cert tests/tls/client.crt --key tests/tls/client.key -t noxmqtt/ci/health -m ready; then
+            if ! kill -0 "$broker_pid" >/dev/null 2>&1; then
+              echo "Mutual-TLS Mosquitto broker exited early" >&2
+              cat "$log_dir/mosquitto-mtls.log" >&2 || true
+              exit 1
+            fi
+            if mosquitto_pub -h 127.0.0.1 -p 8884 --cafile tests/tls/ca.crt --cert tests/tls/client.crt --key tests/tls/client.key -t noxmqtt/ci/health -m ready; then
               broker_ready=1
               break
             fi
@@ -250,9 +266,11 @@ jobs:
 
           if [ "$broker_ready" -ne 1 ]; then
             echo "Mutual-TLS Mosquitto broker did not become ready" >&2
+            cat "$log_dir/mosquitto-mtls.log" >&2 || true
             exit 1
           fi
 
+          export NOXMQTT_CI_LOG_DIR="$log_dir"
           ./tests/ci/run-noxmqtt-cli-smoke.sh mtls ./build/apps/noxmqtt/noxmqtt
 
       - name: Package Windows artifact

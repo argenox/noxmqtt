@@ -36,7 +36,7 @@ case "$mode" in
     tls)
         transport_args=(
             --tls
-            --host localhost
+            --host 127.0.0.1
             --port 8883
             --cafile tests/tls/ca.crt
             --sni localhost
@@ -47,7 +47,7 @@ case "$mode" in
     mtls)
         transport_args=(
             --tls
-            --host localhost
+            --host 127.0.0.1
             --port 8884
             --cafile tests/tls/ca.crt
             --cert tests/tls/client.crt
