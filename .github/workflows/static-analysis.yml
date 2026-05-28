@@ -24,9 +24,10 @@ jobs:
       - name: Run cppcheck
         run: |
           mkdir -p reports
+          cppcheck_exit=0
           cppcheck \
             --file-list=.github/cppcheck-files.txt \
-            --enable=warning,style,performance,portability,information \
+            --enable=warning,style,performance,portability,information,missingInclude \
             --inconclusive \
             --force \
             --inline-suppr \
@@ -39,7 +40,13 @@ jobs:
             -Iapps/noxmqtt \
             --xml \
             --xml-version=2 \
-            2> reports/cppcheck.xml
+            2> reports/cppcheck.xml || cppcheck_exit=$?
+
+          if [ "$cppcheck_exit" -ne 0 ]; then
+            echo "cppcheck reported findings; summary follows:"
+            cat reports/cppcheck.xml
+            exit "$cppcheck_exit"
+          fi
 
       - name: Upload cppcheck report
         if: always()

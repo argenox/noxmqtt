@@ -46,6 +46,7 @@ extern "C" {
 #include "noxtls-lib/tls/noxtls_tls12.h"
 #include "noxtls-lib/tls/noxtls_tls13.h"
 #include "noxtls-lib/tls/noxtls_tls_common.h"
+#include "../common/noxmqtt_noxtls_client_identity.h"
 #endif
 #endif
 #endif
@@ -65,6 +66,7 @@ typedef struct
     uint8_t tls_active_version;
     uint8_t tls_ready;
     uint8_t trust_store_loaded;
+    noxmqtt_noxtls_client_identity_t client_identity;
 #endif
 } noxmqtt_posix_transport_t;
 
@@ -171,6 +173,8 @@ static void noxmqtt_cleanup_transport(noxmqtt_posix_transport_t* ctx)
         noxtls_x509_trust_store_clear();
         ctx->trust_store_loaded = 0;
     }
+
+    noxmqtt_noxtls_client_identity_free(&ctx->client_identity);
 #endif
 
     if (ctx->socket_fd >= 0) {
@@ -272,16 +276,15 @@ static int noxmqtt_noxtls_configure_trust_store(noxmqtt_posix_transport_t* ctx, 
         return -1;
     }
 
-    noxtls_x509_certificate_init(&ca_cert);
-    rc = noxtls_x509_certificate_load_file(&ca_cert, ca_file);
-    if (rc != NOXTLS_RETURN_SUCCESS) {
-        noxtls_x509_certificate_free(&ca_cert);
+    (void)noxtls_x509_certificate_init(&ca_cert);
+    if (noxmqtt_noxtls_load_certificate_source(ca_file, &ca_cert) != 0) {
+        (void)noxtls_x509_certificate_free(&ca_cert);
         return -1;
     }
 
     rc = noxtls_x509_certificate_chain_init(&trust_chain);
     if (rc != NOXTLS_RETURN_SUCCESS) {
-        noxtls_x509_certificate_free(&ca_cert);
+        (void)noxtls_x509_certificate_free(&ca_cert);
         return -1;
     }
 
@@ -290,8 +293,8 @@ static int noxmqtt_noxtls_configure_trust_store(noxmqtt_posix_transport_t* ctx, 
         rc = noxtls_x509_trust_store_set(&trust_chain);
     }
 
-    noxtls_x509_certificate_chain_free(&trust_chain);
-    noxtls_x509_certificate_free(&ca_cert);
+    (void)noxtls_x509_certificate_chain_free(&trust_chain);
+    (void)noxtls_x509_certificate_free(&ca_cert);
 
     if (rc == NOXTLS_RETURN_SUCCESS) {
         ctx->trust_store_loaded = 1;
@@ -299,6 +302,26 @@ static int noxmqtt_noxtls_configure_trust_store(noxmqtt_posix_transport_t* ctx, 
     }
 
     return -1;
+}
+
+/**
+ * @brief Resolves the hostname value used for TLS hostname verification.
+ *
+ * @param[in] conf Client connection configuration.
+ *
+ * @return Hostname string, or `NULL` when hostname verification is disabled.
+ */
+static const char* noxmqtt_noxtls_hostname_for_verification(const noxmqtt_client_conf_t* conf)
+{
+    if (conf == NULL || !conf->server.tls.verify_hostname) {
+        return NULL;
+    }
+
+    if (conf->server.tls.server_name != NULL && conf->server.tls.server_name[0] != '\0') {
+        return conf->server.tls.server_name;
+    }
+
+    return conf->server.addr;
 }
 
 /**
@@ -313,19 +336,20 @@ static int noxmqtt_noxtls_handshake(noxmqtt_posix_transport_t* ctx, const noxmqt
 {
     noxtls_return_t rc = NOXTLS_RETURN_SUCCESS;
     const char* server_name = NULL;
+    int require_tls13 = 0;
 
     if (ctx == NULL || conf == NULL) {
         return -1;
     }
 
-    if (conf->server.tls.client_cert != NULL || conf->server.tls.client_key != NULL) {
+    if (noxmqtt_noxtls_client_identity_load(&ctx->client_identity,
+                                            conf->server.tls.client_cert,
+                                            conf->server.tls.client_key) != 0) {
         return -1;
     }
+    require_tls13 = (ctx->client_identity.configured != 0U) ? 1 : 0;
 
-    server_name = conf->server.tls.server_name;
-    if (server_name == NULL || server_name[0] == '\0') {
-        server_name = conf->server.addr;
-    }
+    server_name = noxmqtt_noxtls_hostname_for_verification(conf);
 
     if (conf->server.tls.verify_peer) {
         if (noxmqtt_noxtls_configure_trust_store(ctx, conf->server.tls.ca_cert) != 0) {
@@ -335,14 +359,23 @@ static int noxmqtt_noxtls_handshake(noxmqtt_posix_transport_t* ctx, const noxmqt
 
     rc = noxtls_tls13_context_init(&ctx->tls13, TLS_ROLE_CLIENT);
     if (rc == NOXTLS_RETURN_SUCCESS) {
-        ctx->tls13.server_name = server_name;
-        ctx->tls13.server_name_len = (uint16_t)strlen(server_name);
+        if (server_name != NULL && server_name[0] != '\0') {
+            ctx->tls13.server_name = server_name;
+            ctx->tls13.server_name_len = (uint16_t)strlen(server_name);
+        }
         rc = noxtls_tls_set_io_callbacks(&ctx->tls13.base.base,
                                          noxmqtt_noxtls_send_cb,
                                          noxmqtt_noxtls_recv_cb,
                                          ctx);
         if (rc == NOXTLS_RETURN_SUCCESS) {
             (void)noxtls_tls_set_time_callback(&ctx->tls13.base.base, noxmqtt_noxtls_time_cb);
+            if (ctx->client_identity.configured) {
+                rc = (noxmqtt_noxtls_client_identity_apply_tls13(&ctx->client_identity, &ctx->tls13) == 0)
+                    ? NOXTLS_RETURN_SUCCESS
+                    : NOXTLS_RETURN_FAILED;
+            }
+        }
+        if (rc == NOXTLS_RETURN_SUCCESS) {
             rc = noxtls_tls13_connect(&ctx->tls13);
         }
 
@@ -355,13 +388,19 @@ static int noxmqtt_noxtls_handshake(noxmqtt_posix_transport_t* ctx, const noxmqt
         noxtls_tls13_context_free(&ctx->tls13);
     }
 
+    if (require_tls13) {
+        return -1;
+    }
+
     rc = noxtls_tls12_context_init(&ctx->tls12, TLS_ROLE_CLIENT);
     if (rc != NOXTLS_RETURN_SUCCESS) {
         return -1;
     }
 
-    ctx->tls12.server_name = server_name;
-    ctx->tls12.server_name_len = (uint16_t)strlen(server_name);
+    if (server_name != NULL && server_name[0] != '\0') {
+        ctx->tls12.server_name = server_name;
+        ctx->tls12.server_name_len = (uint16_t)strlen(server_name);
+    }
     rc = noxtls_tls_set_io_callbacks(&ctx->tls12.base.base,
                                      noxmqtt_noxtls_send_cb,
                                      noxmqtt_noxtls_recv_cb,
