@@ -5,7 +5,7 @@
 #include "noxmqtt_mqtt5.h"
 #include "noxmqtt_tal.h"
 
-extern void noxmqtt_transport_rcv_func(noxmqtt_client_t* c, uint8_t* data, uint16_t len);
+extern void noxmqtt_transport_rcv_func(noxmqtt_client_t* c, const uint8_t* data, uint16_t len);
 
 static noxmqtt_transport_rcv_t g_recv_cb = NULL;
 static noxmqtt_client_t* g_recv_client = NULL;

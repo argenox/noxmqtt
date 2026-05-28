@@ -86,7 +86,7 @@ char * get_mqtt_packet_type_str(int32_t code)
  * @param[in] data Buffer to print.
  * @param[in] len Number of bytes to print.
  */
-void print_buffer(uint8_t* data, uint16_t len)
+void print_buffer(const uint8_t* data, uint16_t len)
 {    
     size_t i;
     printf("-----Data[%d]: ", len);
@@ -104,12 +104,10 @@ void print_buffer(uint8_t* data, uint16_t len)
  * @param[in] lvl Debug level for the message.
  * @param[in] format Printf-style format string.
  */
-void noxmqtt_debug_printf(noxmqtt_client_t * c, noxmqtt_debug_lvl_t lvl, const char * format, ...)
+void noxmqtt_debug_printf(const noxmqtt_client_t* c, noxmqtt_debug_lvl_t lvl, const char* format, ...)
 {
-    char buffer[256];
-
     if (c != NULL && lvl <= c->debug_lvl) {
-
+        char buffer[256];
         va_list args;
         va_start(args, format);
         vsnprintf(buffer, sizeof(buffer), format, args);

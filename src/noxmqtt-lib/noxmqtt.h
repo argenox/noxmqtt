@@ -563,7 +563,7 @@ extern noxmqtt_rc_t noxmqtt_publish(noxmqtt_client_t* c,
  * @return NoxMQTT status code.
  */
 extern noxmqtt_rc_t noxmqtt_subscribe(noxmqtt_client_t* c,
-                                noxmqtt_topic_sub_t* topics,
+                                const noxmqtt_topic_sub_t* topics,
                                 uint8_t topic_cnt);
 
 /**
@@ -576,7 +576,7 @@ extern noxmqtt_rc_t noxmqtt_subscribe(noxmqtt_client_t* c,
  * @return NoxMQTT status code.
  */
 extern noxmqtt_rc_t noxmqtt_unsubscribe(noxmqtt_client_t* c,
-    noxmqtt_topic_sub_t* topics,
+    const noxmqtt_topic_sub_t* topics,
     uint8_t topic_cnt);
 
 /**

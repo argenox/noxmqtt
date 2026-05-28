@@ -54,7 +54,7 @@ extern char * get_mqtt_packet_type_str(int32_t code);
  * @param[in] data Buffer to print.
  * @param[in] len Number of bytes to print.
  */
-extern void print_buffer(uint8_t* data, uint16_t len);
+extern void print_buffer(const uint8_t* data, uint16_t len);
 
 /**
  * @brief Prints a formatted debug message when the level is enabled.
@@ -63,7 +63,7 @@ extern void print_buffer(uint8_t* data, uint16_t len);
  * @param[in] lvl Debug level for the message.
  * @param[in] format Printf-style format string.
  */
-extern void noxmqtt_debug_printf(noxmqtt_client_t* c, noxmqtt_debug_lvl_t lvl, const char* format, ...);
+extern void noxmqtt_debug_printf(const noxmqtt_client_t* c, noxmqtt_debug_lvl_t lvl, const char* format, ...);
 
 #ifdef __cplusplus
 }

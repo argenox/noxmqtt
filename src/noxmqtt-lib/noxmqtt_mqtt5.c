@@ -1425,7 +1425,7 @@ static noxmqtt_rc_t mqtt5_write_user_properties(uint8_t* buffer,
                                                 uint16_t count)
 {
     uint16_t i = 0;
-    noxmqtt_rc_t rc = NOXMQTT_SUCCESS;
+    noxmqtt_rc_t rc;
 
     if (count == 0U) {
         return NOXMQTT_SUCCESS;

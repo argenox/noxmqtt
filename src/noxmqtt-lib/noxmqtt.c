@@ -51,7 +51,7 @@ static noxmqtt_rc_t noxmqtt_publish_internal(noxmqtt_client_t* c,
                                              noxmqtt_qos_t qos,
                                              uint8_t retain,
                                              uint8_t dup,
-                                             char* topic,
+                                             const char* topic,
                                              const uint8_t* payload,
                                              uint16_t payload_len,
                                              uint16_t packet_identifier,
@@ -103,7 +103,7 @@ static noxmqtt_rc_t noxmqtt_subscription_cache_add(noxmqtt_client_t* c, const no
 static void noxmqtt_subscription_cache_remove(noxmqtt_client_t* c, const char* topic);
 static noxmqtt_rc_t noxmqtt_outbox_store(noxmqtt_client_t* c,
                                          uint16_t packet_identifier,
-                                         char* topic,
+                                         const char* topic,
                                          const uint8_t* payload,
                                          uint16_t payload_len,
                                          noxmqtt_qos_t qos,
@@ -115,7 +115,7 @@ static void noxmqtt_outbox_remove(noxmqtt_client_t* c, uint16_t packet_identifie
 static void noxmqtt_outbox_item_reset(noxmqtt_outbox_item_t* item);
 static noxmqtt_rc_t noxmqtt_outbox_clone_publish_props(noxmqtt_outbox_item_t* item,
                                                        const noxmqtt_mqtt5_publish_props_t* props);
-static uint16_t noxmqtt_outbox_inflight_count(noxmqtt_client_t* c);
+static uint16_t noxmqtt_outbox_inflight_count(const noxmqtt_client_t* c);
 static noxmqtt_rc_t noxmqtt_outbox_pump(noxmqtt_client_t* c);
 static noxmqtt_rc_t noxmqtt_resubscribe_all(noxmqtt_client_t* c);
 static noxmqtt_rc_t noxmqtt_replay_outbox(noxmqtt_client_t* c);
@@ -128,17 +128,18 @@ static void noxmqtt_topic_alias_cache_clear(noxmqtt_client_t* c);
 static noxmqtt_rc_t noxmqtt_topic_alias_store(noxmqtt_client_t* c, uint16_t alias, const char* topic, uint16_t topic_len);
 static const char* noxmqtt_topic_alias_lookup(noxmqtt_client_t* c, uint16_t alias, uint16_t* topic_len);
 static void noxmqtt_publish_topic_alias_cache_clear(noxmqtt_client_t* c);
-static uint16_t noxmqtt_publish_topic_alias_find(noxmqtt_client_t* c, const char* topic);
+static uint16_t noxmqtt_publish_topic_alias_find(const noxmqtt_client_t* c, const char* topic);
 static const char* noxmqtt_publish_topic_alias_lookup(noxmqtt_client_t* c, uint16_t alias);
 static noxmqtt_rc_t noxmqtt_publish_topic_alias_store(noxmqtt_client_t* c, uint16_t alias, const char* topic);
 static uint16_t noxmqtt_publish_topic_alias_assign(noxmqtt_client_t* c, const char* topic);
 static void noxmqtt_clear_active_auth_method(noxmqtt_client_t* c);
 static noxmqtt_rc_t noxmqtt_set_active_auth_method(noxmqtt_client_t* c, const char* method, uint16_t len);
-static uint8_t noxmqtt_active_auth_method_matches(noxmqtt_client_t* c, const char* method, uint16_t len);
+static uint8_t noxmqtt_active_auth_method_matches(const noxmqtt_client_t* c, const char* method, uint16_t len);
 static uint8_t noxmqtt_is_auth_exchange_active(uint8_t reason_code);
 static void noxmqtt_reset_broker_capabilities(noxmqtt_client_t* c);
 static uint8_t noxmqtt_topic_has_wildcard(const char* topic);
 static uint8_t noxmqtt_topic_is_shared_subscription(const char* topic);
+static void noxmqtt_clear_tx_buf(noxmqtt_client_t* c);
 
 /* MQTT Response Handlers */
 static void noxmqtt_handler_connack(noxmqtt_client_t* c, uint8_t* data, uint16_t len);
@@ -154,7 +155,7 @@ static void noxmqtt_handler_auth(noxmqtt_client_t* c, uint8_t* data, uint16_t le
 static void noxmqtt_handler_pingresp(noxmqtt_client_t* c, uint8_t* data, uint16_t len);
 
 int noxmqtt_set_remain_len(uint8_t* buffer, uint32_t len);
-int noxmqtt_decode_remain_len(uint8_t* buffer, uint32_t* len);
+int noxmqtt_decode_remain_len(const uint8_t* buffer, uint32_t* len);
 
 /**
  * @brief Initializes an NoxMQTT client instance.
@@ -269,10 +270,9 @@ noxmqtt_rc_t noxmqtt_deinit(noxmqtt_client_t* c)
  * @param[in] data Received packet bytes.
  * @param[in] len Number of received bytes.
  */
-void noxmqtt_transport_rcv_func(noxmqtt_client_t* c, uint8_t* data, uint16_t len)
+void noxmqtt_transport_rcv_func(noxmqtt_client_t* c, const uint8_t* data, uint16_t len)
 {
     uint32_t remain_length = 0;
-    int remain_len_bytes = 0;
     uint16_t parse_offset = 0;
 
     if (noxmqtt_validate_client(c) != NOXMQTT_SUCCESS || data == NULL || len == 0) {
@@ -290,9 +290,10 @@ void noxmqtt_transport_rcv_func(noxmqtt_client_t* c, uint8_t* data, uint16_t len
     c->last_rx_ms = noxmqtt_tal_time_ms();
 
     while ((uint16_t)(c->rcv_offset - parse_offset) >= 2U) {
-        noxmqtt_hdr_t* hdr = (noxmqtt_hdr_t*)&c->rcv_buf[parse_offset];
+        const noxmqtt_hdr_t* hdr = (const noxmqtt_hdr_t*)&c->rcv_buf[parse_offset];
         uint16_t available = (uint16_t)(c->rcv_offset - parse_offset);
         uint16_t packet_len = 0;
+        int remain_len_bytes = 0;
 
         if (!noxmqtt_validate_received_header_flags(hdr)) {
             noxmqtt_send_error(c, NOXMQTT_RC_ERROR_BAD_PACKET);
@@ -388,7 +389,7 @@ void noxmqtt_transport_rcv_func(noxmqtt_client_t* c, uint8_t* data, uint16_t len
 static void noxmqtt_handler_connack(noxmqtt_client_t* c, uint8_t* data, uint16_t len)
 {
     noxmqtt_evt_data_t evt_data;
-    noxmqtt_response_var_hdr_t* var_hdr = NULL;
+    const noxmqtt_response_var_hdr_t* var_hdr = NULL;
     uint32_t remain_length = 0;
     int remain_len_bytes = 0;
 
@@ -571,7 +572,7 @@ static void noxmqtt_handler_connack(noxmqtt_client_t* c, uint8_t* data, uint16_t
         return;
     }
 
-    if (remain_len_bytes != 1 || remain_length != 2U || len != (uint16_t)(sizeof(noxmqtt_hdr_t) + remain_len_bytes + remain_length)) {
+    if (remain_length != 2U || len != (uint16_t)(sizeof(noxmqtt_hdr_t) + remain_len_bytes + remain_length)) {
         noxmqtt_send_error(c, NOXMQTT_RC_ERROR_BAD_PACKET);
         return;
     }
@@ -652,7 +653,7 @@ static void noxmqtt_handler_connack(noxmqtt_client_t* c, uint8_t* data, uint16_t
 static void noxmqtt_handler_publish(noxmqtt_client_t* c, uint8_t* data, uint16_t len)
 {
     noxmqtt_evt_data_t evt_data;
-    noxmqtt_hdr_t* hdr = (noxmqtt_hdr_t*)data;
+    const noxmqtt_hdr_t* hdr = (const noxmqtt_hdr_t*)data;
     uint32_t remain_length = 0;
     int remain_len_bytes = 0;
     uint16_t offset = 0;
@@ -1370,7 +1371,7 @@ noxmqtt_rc_t noxmqtt_connect(noxmqtt_client_t* c, noxmqtt_client_conf_t* conf, u
 
     MEMZERO_S(hdr);
     MEMZERO_S(var_hdr);
-    MEMZERO(c->tx_buf);
+    noxmqtt_clear_tx_buf(c);
 
     if (conf->callback != NULL) {
         c->callback = conf->callback;
@@ -1658,7 +1659,7 @@ noxmqtt_rc_t noxmqtt_publish(noxmqtt_client_t* c,
  *
  * @return NoxMQTT status code.
  */
-noxmqtt_rc_t noxmqtt_subscribe(noxmqtt_client_t* c, noxmqtt_topic_sub_t* topics, uint8_t topic_cnt)
+noxmqtt_rc_t noxmqtt_subscribe(noxmqtt_client_t* c, const noxmqtt_topic_sub_t* topics, uint8_t topic_cnt)
 {
     noxmqtt_rc_t rc = NOXMQTT_SUCCESS;
     noxmqtt_hdr_t hdr;
@@ -1719,7 +1720,7 @@ noxmqtt_rc_t noxmqtt_subscribe(noxmqtt_client_t* c, noxmqtt_topic_sub_t* topics,
     }
 
     MEMZERO_S(hdr);
-    MEMZERO(c->tx_buf);
+    noxmqtt_clear_tx_buf(c);
 
     hdr.type = NOXMQTT_CTRL_PKT_TYPE_SUBSCRIBE;
     rc = noxmqtt_write_u16(c->tx_buf, c->tx_buf_size, &offset, c->packet_ident);
@@ -1797,7 +1798,7 @@ noxmqtt_rc_t noxmqtt_subscribe(noxmqtt_client_t* c, noxmqtt_topic_sub_t* topics,
  *
  * @return NoxMQTT status code.
  */
-noxmqtt_rc_t noxmqtt_unsubscribe(noxmqtt_client_t* c, noxmqtt_topic_sub_t* topics, uint8_t topic_cnt)
+noxmqtt_rc_t noxmqtt_unsubscribe(noxmqtt_client_t* c, const noxmqtt_topic_sub_t* topics, uint8_t topic_cnt)
 {
     noxmqtt_rc_t rc = NOXMQTT_SUCCESS;
     noxmqtt_hdr_t hdr;
@@ -1816,7 +1817,7 @@ noxmqtt_rc_t noxmqtt_unsubscribe(noxmqtt_client_t* c, noxmqtt_topic_sub_t* topic
     }
 
     MEMZERO_S(hdr);
-    MEMZERO(c->tx_buf);
+    noxmqtt_clear_tx_buf(c);
 
     hdr.type = NOXMQTT_CTRL_PKT_TYPE_UNSUBSCRIBE;
     rc = noxmqtt_write_u16(c->tx_buf, c->tx_buf_size, &offset, c->packet_ident);
@@ -1868,7 +1869,7 @@ static noxmqtt_rc_t noxmqtt_puback(noxmqtt_client_t* c, uint16_t identifier)
     noxmqtt_rc_t rc = NOXMQTT_SUCCESS;
 
     MEMZERO_S(hdr);
-    MEMZERO(c->tx_buf);
+    noxmqtt_clear_tx_buf(c);
     hdr.type = NOXMQTT_CTRL_PKT_TYPE_PUBACK;
 
     rc = noxmqtt_write_u16(c->tx_buf, c->tx_buf_size, &offset, identifier);
@@ -1903,7 +1904,7 @@ static noxmqtt_rc_t noxmqtt_pubrec(noxmqtt_client_t* c, uint16_t identifier)
     noxmqtt_rc_t rc = NOXMQTT_SUCCESS;
 
     MEMZERO_S(hdr);
-    MEMZERO(c->tx_buf);
+    noxmqtt_clear_tx_buf(c);
     hdr.type = NOXMQTT_CTRL_PKT_TYPE_PUBREC;
 
     rc = noxmqtt_write_u16(c->tx_buf, c->tx_buf_size, &offset, identifier);
@@ -1938,7 +1939,7 @@ static noxmqtt_rc_t noxmqtt_pubrel(noxmqtt_client_t* c, uint16_t identifier)
     noxmqtt_rc_t rc = NOXMQTT_SUCCESS;
 
     MEMZERO_S(hdr);
-    MEMZERO(c->tx_buf);
+    noxmqtt_clear_tx_buf(c);
     hdr.type = NOXMQTT_CTRL_PKT_TYPE_PUBREL;
 
     rc = noxmqtt_write_u16(c->tx_buf, c->tx_buf_size, &offset, identifier);
@@ -1974,7 +1975,7 @@ static noxmqtt_rc_t noxmqtt_pubcomp(noxmqtt_client_t* c, uint16_t identifier)
     noxmqtt_rc_t rc = NOXMQTT_SUCCESS;
 
     MEMZERO_S(hdr);
-    MEMZERO(c->tx_buf);
+    noxmqtt_clear_tx_buf(c);
     hdr.type = NOXMQTT_CTRL_PKT_TYPE_PUBCOMP;
 
     rc = noxmqtt_write_u16(c->tx_buf, c->tx_buf_size, &offset, identifier);
@@ -2022,7 +2023,7 @@ static noxmqtt_rc_t noxmqtt_publish_internal(noxmqtt_client_t* c,
                                              noxmqtt_qos_t qos,
                                              uint8_t retain,
                                              uint8_t dup,
-                                             char* topic,
+                                             const char* topic,
                                              const uint8_t* payload,
                                              uint16_t payload_len,
                                              uint16_t packet_identifier,
@@ -2034,14 +2035,12 @@ static noxmqtt_rc_t noxmqtt_publish_internal(noxmqtt_client_t* c,
     uint16_t body_len = 0;
     uint8_t* send_ptr = NULL;
     uint16_t send_len = 0;
-    uint8_t props_buf[192];
-    uint16_t props_len = 0;
     noxmqtt_mqtt5_publish_props_t effective_props;
     const noxmqtt_mqtt5_publish_props_t* props_to_send = props;
     const char* topic_to_send = topic;
 
     MEMZERO_S(hdr);
-    MEMZERO(c->tx_buf);
+    noxmqtt_clear_tx_buf(c);
     MEMZERO_S(effective_props);
 
     hdr.type = NOXMQTT_CTRL_PKT_TYPE_PUBLISH;
@@ -2060,7 +2059,7 @@ static noxmqtt_rc_t noxmqtt_publish_internal(noxmqtt_client_t* c,
             return NOXMQTT_RC_ERROR_BAD_PACKET;
         }
 
-        uint16_t topic_alias = 0;
+        uint16_t topic_alias;
 
         if (props != NULL) {
             effective_props = *props;
@@ -2114,6 +2113,9 @@ static noxmqtt_rc_t noxmqtt_publish_internal(noxmqtt_client_t* c,
     }
 
     if (c->last_conf.protocol_version == NOXMQTT_PROTOCOL_V5_0) {
+        uint8_t props_buf[192];
+        uint16_t props_len = 0U;
+
         rc = noxmqtt_mqtt5_encode_publish_properties(props_buf, sizeof(props_buf), props_to_send, &props_len);
         if (rc != NOXMQTT_SUCCESS) {
             return rc;
@@ -2164,7 +2166,7 @@ static noxmqtt_rc_t noxmqtt_send_simple_packet(noxmqtt_client_t* c, noxmqtt_ctrl
     }
 
     MEMZERO_S(hdr);
-    MEMZERO(c->tx_buf);
+    noxmqtt_clear_tx_buf(c);
 
     hdr.type = type;
     rc = noxmqtt_finalize_packet(c, hdr, 0U, &send_ptr, &send_len);
@@ -2208,7 +2210,7 @@ noxmqtt_rc_t noxmqtt_disconnect_ex(noxmqtt_client_t* c, const noxmqtt_mqtt5_disc
         if (c->last_conf.protocol_version == NOXMQTT_PROTOCOL_V5_0) {
             noxmqtt_hdr_t hdr;
             uint16_t offset = NOXMQTT_FIXED_HEADER_MAX_LEN;
-            uint16_t body_len = 0;
+            uint16_t body_len;
             uint8_t* send_ptr = NULL;
             uint16_t send_len = 0;
             uint8_t props_buf[128];
@@ -2230,7 +2232,7 @@ noxmqtt_rc_t noxmqtt_disconnect_ex(noxmqtt_client_t* c, const noxmqtt_mqtt5_disc
                 rc = noxmqtt_send_simple_packet(c, NOXMQTT_CTRL_PKT_TYPE_DISCONNECT, 0U);
             } else {
                 MEMZERO_S(hdr);
-                MEMZERO(c->tx_buf);
+                noxmqtt_clear_tx_buf(c);
                 hdr.type = NOXMQTT_CTRL_PKT_TYPE_DISCONNECT;
 
                 rc = noxmqtt_write_bytes(c->tx_buf, c->tx_buf_size, &offset, &reason_code, 1U);
@@ -2347,7 +2349,7 @@ noxmqtt_rc_t noxmqtt_auth(noxmqtt_client_t* c, const noxmqtt_mqtt5_auth_props_t*
     }
 
     MEMZERO_S(hdr);
-    MEMZERO(c->tx_buf);
+    noxmqtt_clear_tx_buf(c);
     hdr.type = NOXMQTT_CTRL_PKT_TYPE_AUTH;
     rc = noxmqtt_write_bytes(c->tx_buf, c->tx_buf_size, &offset, &reason_code, 1U);
     if (rc != NOXMQTT_SUCCESS) {
@@ -2861,7 +2863,7 @@ static void noxmqtt_subscription_cache_remove(noxmqtt_client_t* c, const char* t
  */
 static noxmqtt_rc_t noxmqtt_outbox_store(noxmqtt_client_t* c,
                                          uint16_t packet_identifier,
-                                         char* topic,
+                                         const char* topic,
                                          const uint8_t* payload,
                                          uint16_t payload_len,
                                          noxmqtt_qos_t qos,
@@ -2872,7 +2874,7 @@ static noxmqtt_rc_t noxmqtt_outbox_store(noxmqtt_client_t* c,
     uint16_t i = 0;
     char* topic_copy = NULL;
     uint8_t* payload_copy = NULL;
-    noxmqtt_rc_t rc = NOXMQTT_SUCCESS;
+    noxmqtt_rc_t rc;
 
     if (c == NULL || c->outbox == NULL || topic == NULL) {
         return NOXMQTT_RC_ERROR_NULL;
@@ -3002,8 +3004,6 @@ static void noxmqtt_outbox_item_reset(noxmqtt_outbox_item_t* item)
 static noxmqtt_rc_t noxmqtt_outbox_clone_publish_props(noxmqtt_outbox_item_t* item,
                                                        const noxmqtt_mqtt5_publish_props_t* props)
 {
-    uint16_t i = 0;
-
     if (item == NULL) {
         return NOXMQTT_RC_ERROR_NULL;
     }
@@ -3041,7 +3041,7 @@ static noxmqtt_rc_t noxmqtt_outbox_clone_publish_props(noxmqtt_outbox_item_t* it
 
         item->mqtt5.user_properties = item->mqtt5_user_properties;
         item->mqtt5.user_property_count = props->user_property_count;
-        for (i = 0; i < props->user_property_count; i++) {
+        for (uint16_t i = 0; i < props->user_property_count; i++) {
             item->mqtt5_user_property_names[i] = (props->user_properties[i].name != NULL)
                 ? noxmqtt_strdup_local(props->user_properties[i].name) : NULL;
             item->mqtt5_user_property_values[i] = (props->user_properties[i].value != NULL)
@@ -3068,7 +3068,7 @@ static noxmqtt_rc_t noxmqtt_outbox_clone_publish_props(noxmqtt_outbox_item_t* it
  *
  * @return Number of in-flight outbox entries.
  */
-static uint16_t noxmqtt_outbox_inflight_count(noxmqtt_client_t* c)
+static uint16_t noxmqtt_outbox_inflight_count(const noxmqtt_client_t* c)
 {
     uint16_t i = 0;
     uint16_t count = 0;
@@ -3417,7 +3417,7 @@ static noxmqtt_rc_t noxmqtt_set_active_auth_method(noxmqtt_client_t* c, const ch
  *
  * @return Non-zero when the methods match, otherwise zero.
  */
-static uint8_t noxmqtt_active_auth_method_matches(noxmqtt_client_t* c, const char* method, uint16_t len)
+static uint8_t noxmqtt_active_auth_method_matches(const noxmqtt_client_t* c, const char* method, uint16_t len)
 {
     size_t active_len = 0;
 
@@ -3618,7 +3618,7 @@ static void noxmqtt_publish_topic_alias_cache_clear(noxmqtt_client_t* c)
  *
  * @return Alias value, or zero when none is assigned.
  */
-static uint16_t noxmqtt_publish_topic_alias_find(noxmqtt_client_t* c, const char* topic)
+static uint16_t noxmqtt_publish_topic_alias_find(const noxmqtt_client_t* c, const char* topic)
 {
     uint16_t i = 0;
     uint16_t alias_limit = 0;
@@ -3798,7 +3798,7 @@ int noxmqtt_set_remain_len(uint8_t* buffer, uint32_t len)
  *
  * @return Number of consumed bytes, or `-1` on failure.
  */
-int noxmqtt_decode_remain_len(uint8_t* buffer, uint32_t* len)
+int noxmqtt_decode_remain_len(const uint8_t* buffer, uint32_t* len)
 {
     uint8_t byte = 0;
     uint32_t multiplier = 1;
@@ -3827,6 +3827,18 @@ int noxmqtt_decode_remain_len(uint8_t* buffer, uint32_t* len)
     }
 
     return index;
+}
+
+/**
+ * @brief Clears the per-client transmit buffer.
+ *
+ * @param[in] c Client instance that owns the transmit buffer.
+ */
+static void noxmqtt_clear_tx_buf(noxmqtt_client_t* c)
+{
+    if (c != NULL && c->tx_buf != NULL && c->tx_buf_size > 0U) {
+        memset(c->tx_buf, 0, c->tx_buf_size);
+    }
 }
 
 /**

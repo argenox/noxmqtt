@@ -31,7 +31,7 @@ extern "C" {
 
 /* APIs which must be implemented by the target platform */
 
-typedef void (*noxmqtt_transport_rcv_t)(noxmqtt_client_t* c, uint8_t * data, uint16_t len);
+typedef void (*noxmqtt_transport_rcv_t)(noxmqtt_client_t* c, const uint8_t* data, uint16_t len);
 
 
 /**

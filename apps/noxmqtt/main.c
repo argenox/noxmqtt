@@ -947,7 +947,7 @@ static void noxmqtt_app_callback(noxmqtt_evt_data_t* data)
             break;
 
         case NOXMQTT_EVT_CONNECT_ERROR:
-            fprintf(stderr, "connect_error=%u", data->evt.conn_err_evt.reason);
+            fprintf(stderr, "connect_error=%d", (int)data->evt.conn_err_evt.reason);
             if (app->conf.protocol_version == NOXMQTT_PROTOCOL_V5_0) {
                 fprintf(stderr, " raw=%u", data->evt.conn_err_evt.raw_reason_code);
             }
@@ -1011,7 +1011,7 @@ static void noxmqtt_app_callback(noxmqtt_evt_data_t* data)
             break;
 
         case NOXMQTT_EVT_ERROR:
-            fprintf(stderr, "mqtt_error rc=%u\n", data->evt.error_evt.rc);
+            fprintf(stderr, "mqtt_error rc=%d\n", (int)data->evt.error_evt.rc);
             if (app->action != NOXMQTT_APP_ACTION_INTERACTIVE) {
                 app->exit_code = 1;
             }
@@ -1254,7 +1254,7 @@ static int noxmqtt_app_process_line(noxmqtt_app_t* app, char* line)
     char* cmd = NULL;
     char* token = NULL;
     noxmqtt_topic_sub_t topic_sub = { 0 };
-    noxmqtt_rc_t rc = NOXMQTT_SUCCESS;
+    noxmqtt_rc_t rc;
     uint8_t qos = 0U;
 
     if (app == NULL || line == NULL) {
@@ -1283,8 +1283,8 @@ static int noxmqtt_app_process_line(noxmqtt_app_t* app, char* line)
     }
 
     if (NOXMQTT_STRICMP(cmd, "set") == 0) {
-        char* field = noxmqtt_app_next_token(&args);
-        char* value = noxmqtt_app_trim(args);
+        const char* field = noxmqtt_app_next_token(&args);
+        const char* value = noxmqtt_app_trim(args);
         if (field == NULL || value == NULL || value[0] == '\0' || noxmqtt_app_set_field(app, field, value) != 0) {
             fprintf(stderr, "Usage: set <field> <value>\n");
         } else {
@@ -1305,7 +1305,7 @@ static int noxmqtt_app_process_line(noxmqtt_app_t* app, char* line)
 
     if (NOXMQTT_STRICMP(cmd, "pub") == 0) {
         char* topic = noxmqtt_app_next_token(&args);
-        char* qos_str = noxmqtt_app_next_token(&args);
+        const char* qos_str = noxmqtt_app_next_token(&args);
         char* payload = noxmqtt_app_trim(args);
 
         if (topic == NULL || qos_str == NULL || payload == NULL || payload[0] == '\0' ||
@@ -1321,7 +1321,7 @@ static int noxmqtt_app_process_line(noxmqtt_app_t* app, char* line)
 
     if (NOXMQTT_STRICMP(cmd, "sub") == 0) {
         char* topic = noxmqtt_app_next_token(&args);
-        char* qos_str = noxmqtt_app_next_token(&args);
+        const char* qos_str = noxmqtt_app_next_token(&args);
 
         if (topic == NULL) {
             fprintf(stderr, "Usage: sub <topic> [qos]\n");

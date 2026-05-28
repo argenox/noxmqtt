@@ -35,6 +35,8 @@ jobs:
             --std=c11 \
             --error-exitcode=1 \
             --suppress=missingIncludeSystem \
+            --suppress=missingInclude:src/noxmqtt-lib/noxmqtt_config.h \
+            --suppress=missingInclude:apps/noxmqtt/main.c \
             --suppress=unusedFunction \
             -Isrc/noxmqtt-lib \
             -Iapps/noxmqtt \
