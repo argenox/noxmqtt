@@ -1,5 +1,18 @@
 cmake_minimum_required(VERSION 3.16)
 
+# NoxADK discovers component directories even when a component is disabled.
+# The MCU application supplies its TAL; never build a desktop CLI/port there.
+if(DEFINED NOXADK_PATH AND NOT ESP_PLATFORM)
+    if(NOT CONFIG_NOXMQTT)
+        return()
+    endif()
+    add_subdirectory(src/noxmqtt-lib)
+    if(COMMAND noxadk_enable_sections)
+        noxadk_enable_sections(noxmqtt)
+    endif()
+    return()
+endif()
+
 if(ESP_PLATFORM)
     idf_component_register(
         SRCS
