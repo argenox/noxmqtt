@@ -249,6 +249,33 @@ static int test_multiple_subscription_identifiers_preserved(void)
     return 1;
 }
 
+/** @brief SUBACK exposes the first wire byte even with adjacent reason codes.
+ * @return One when both the enum and reason-code array preserve their values.
+ */
+static int test_suback_return_code_is_one_byte(void)
+{
+    noxmqtt_client_t client;
+    uint8_t connack[] = {0x20U,0x0BU,0x00U,0x00U,0x08U,
+        MQTT5_PROPERTY_AUTH_METHOD,0x00U,0x05U,'S','C','R','A','M'};
+    uint8_t suback[] = {0x90U,0x05U,0x00U,0x01U,0x00U,0x01U,0x80U};
+    noxmqtt_topic_sub_t topics[2];
+    reset_test_state();
+    memset(&client,0,sizeof(client));memset(topics,0,sizeof(topics));
+    if(!assert_true(noxmqtt_init(&client,NOXMQTT_DEBUG_LVL_NONE)==NOXMQTT_SUCCESS,"initialize SUBACK client"))return 0;
+    int ok=perform_connect(&client)&&feed_packet(&client,connack,(uint16_t)sizeof(connack));
+    topics[0].topic="test/first";topics[0].qos=NOXMQTT_QOS1_AT_LEAST_ONCE_DELIV;
+    topics[1].topic="test/second";topics[1].qos=NOXMQTT_QOS1_AT_LEAST_ONCE_DELIV;
+    if(ok)ok=assert_true(noxmqtt_subscribe(&client,topics,2U)==NOXMQTT_SUCCESS,"subscribe to two topics");
+    if(ok)ok=feed_packet(&client,suback,(uint16_t)sizeof(suback));
+    if(ok)ok=assert_true(g_last_event.evt_id==NOXMQTT_EVT_SUBSCRIBED&&
+        g_last_event.evt.subscribed_evt.return_code==NOXMQTT_SUBACK_RETURN_SUCCESS_QOS1,
+        "SUBACK return code must not include neighboring bytes");
+    if(ok)ok=assert_true(g_last_event.evt.subscribed_evt.reason_code_count==2U&&
+        g_last_event.evt.subscribed_evt.reason_codes[1]==0x80U,"preserve second subscription refusal");
+    (void)noxmqtt_deinit(&client);
+    return ok;
+}
+
 int noxmqtt_transport_init(noxmqtt_client_t* c, noxmqtt_transport_rcv_t rcv_cback)
 {
     g_recv_client = c;
@@ -306,6 +333,7 @@ int main(void)
 {
     int ok = 1;
 
+    ok &= test_suback_return_code_is_one_byte();
     ok &= test_incoming_reauth_uses_active_method();
     ok &= test_outgoing_reauth_starts_auth_exchange();
     ok &= test_duplicate_singleton_property_rejected();

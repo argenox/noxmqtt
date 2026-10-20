@@ -1037,7 +1037,7 @@ static void noxmqtt_handler_suback(noxmqtt_client_t* c, uint8_t* data, uint16_t 
         noxmqtt_send_error(c, NOXMQTT_RC_ERROR_BAD_PACKET);
         return;
     }
-    evt_data.evt.subscribed_evt.return_code = *(noxmqtt_suback_return_t*)&data[offset];
+    evt_data.evt.subscribed_evt.return_code = (noxmqtt_suback_return_t)data[offset];
     noxmqtt_send_event(c, &evt_data);
 }
 
