@@ -63,7 +63,7 @@ typedef struct
 #if NOXMQTT_HAS_NOXTLS
     tls12_context_t tls12;
     tls13_context_t tls13;
-    uint8_t tls_active_version;
+    uint16_t tls_active_version;
     uint8_t tls_ready;
     uint8_t trust_store_loaded;
     noxmqtt_noxtls_client_identity_t client_identity;

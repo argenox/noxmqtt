@@ -66,6 +66,7 @@ esac
 "$binary" --version >"$version_log" 2>&1
 
 "$binary" sub "${common_args[@]}" "${transport_args[@]}" \
+    --id "ci-sub-${mode}-$$" \
     -t "$topic" \
     --count 1 \
     --wait-ms 5000 >"$sub_log" 2>&1 &
@@ -83,6 +84,7 @@ trap cleanup EXIT
 sleep 1
 
 "$binary" pub "${common_args[@]}" "${transport_args[@]}" \
+    --id "ci-pub-${mode}-$$" \
     -t "$topic" \
     -m "$payload" >"$pub_log" 2>&1
 

@@ -96,7 +96,7 @@ typedef struct
 #if NOXMQTT_HAS_NOXTLS
     tls12_context_t tls12;
     tls13_context_t tls13;
-    uint8_t tls_active_version;
+    uint16_t tls_active_version;
     uint8_t tls_ready;
     uint8_t trust_store_loaded;
     noxmqtt_noxtls_client_identity_t client_identity;
@@ -377,6 +377,7 @@ static int noxmqtt_noxtls_handshake(noxmqtt_win_transport_t* ctx, const noxmqtt_
     if (noxmqtt_noxtls_client_identity_load(&ctx->client_identity,
                                             conf->server.tls.client_cert,
                                             conf->server.tls.client_key) != 0) {
+        noxmqtt_hal_debug_printf("NoxTLS: client certificate/key loading failed\n");
         return -1;
     }
     require_tls13 = (ctx->client_identity.configured != 0U) ? 1 : 0;
@@ -385,6 +386,7 @@ static int noxmqtt_noxtls_handshake(noxmqtt_win_transport_t* ctx, const noxmqtt_
 
     if (conf->server.tls.verify_peer) {
         if (noxmqtt_noxtls_configure_trust_store(ctx, conf->server.tls.ca_cert) != 0) {
+            noxmqtt_hal_debug_printf("NoxTLS: trust anchor loading failed\n");
             return -1;
         }
     }
@@ -418,6 +420,12 @@ static int noxmqtt_noxtls_handshake(noxmqtt_win_transport_t* ctx, const noxmqtt_
         }
 
         noxtls_tls13_context_free(&ctx->tls13);
+        {
+            char message[96];
+            (void)snprintf(message, sizeof(message), "NoxTLS: TLS 1.3 failed at %.48s (rc=%d)\n",
+                (const char*)noxtls_tls13_last_connect_fail_step(), (int)rc);
+            noxmqtt_hal_debug_printf(message);
+        }
     }
 
     if (require_tls13) {
@@ -573,6 +581,7 @@ int noxmqtt_transport_send(noxmqtt_client_t* c, const uint8_t* data, uint16_t le
         noxtls_return_t rc = NOXTLS_RETURN_NOT_SUPPORTED;
 
         if (!ctx->tls_ready) {
+            noxmqtt_hal_debug_printf("NoxTLS: application send before transport readiness\n");
             return -1;
         }
 
@@ -582,6 +591,11 @@ int noxmqtt_transport_send(noxmqtt_client_t* c, const uint8_t* data, uint16_t le
             rc = noxtls_tls12_send(&ctx->tls12, data, len);
         }
 
+        if (rc != NOXTLS_RETURN_SUCCESS) {
+            char message[80];
+            (void)snprintf(message, sizeof(message), "NoxTLS: application send failed (rc=%d)\n", (int)rc);
+            noxmqtt_hal_debug_printf(message);
+        }
         return (rc == NOXTLS_RETURN_SUCCESS) ? 0 : -1;
     }
 #endif
@@ -664,6 +678,14 @@ int noxmqtt_transport_receive_thread(void* ptr)
                 continue;
             }
 
+            if (!ctx->running) {
+                break;
+            }
+            {
+                char message[80];
+                (void)snprintf(message, sizeof(message), "NoxTLS: application receive failed (rc=%d)\n", (int)rc);
+                noxmqtt_hal_debug_printf(message);
+            }
             ctx->running = 0;
             noxmqtt_cleanup_transport(ctx);
             noxmqtt_transport_notify_disconnected(ctx->client, NOXMQTT_RC_ERROR_TRANSPORT);

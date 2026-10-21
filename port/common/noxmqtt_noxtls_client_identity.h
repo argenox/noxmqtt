@@ -314,6 +314,7 @@ static int noxmqtt_noxtls_client_identity_apply_tls13(noxmqtt_noxtls_client_iden
             break;
         }
 
+#if NOXTLS_FEATURE_ML_DSA
         case X509_PRIVATE_KEY_ML_DSA:
         {
             uint32_t secret_len = 0U;
@@ -330,6 +331,8 @@ static int noxmqtt_noxtls_client_identity_apply_tls13(noxmqtt_noxtls_client_iden
             break;
         }
 
+#endif
+#if NOXTLS_FEATURE_SLH_DSA
         case X509_PRIVATE_KEY_SLH_DSA:
         {
             uint32_t secret_len = 0U;
@@ -346,6 +349,8 @@ static int noxmqtt_noxtls_client_identity_apply_tls13(noxmqtt_noxtls_client_iden
             break;
         }
 
+#endif
+#if NOXTLS_FEATURE_FALCON
         case X509_PRIVATE_KEY_FALCON:
         {
             uint32_t secret_len = 0U;
@@ -362,6 +367,7 @@ static int noxmqtt_noxtls_client_identity_apply_tls13(noxmqtt_noxtls_client_iden
             break;
         }
 
+#endif
         default:
             return -1;
     }
